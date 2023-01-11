@@ -1,89 +1,112 @@
-const http=require('http');
-const { getReqData } = require("./utils");
-const data=require('./data')
-const url=require('url');
-const { title } = require('process');
-const server=http.createServer((req,res)=>{
-    const parsedurl=url.parse(req.url,true)
-    const obj= Object.keys(parsedurl.query)
-    if(req.url==='/api/data' && req.method === "GET")
-    {
-     console.log(req.url);
-     res.writeHead(200,{'content-type':'application/json'})
-     res.write(JSON.stringify(data))
-     res.end()
-    }
+const http = require('http');
+const data = require('./data1')
+const fs = require('fs')
 
-    //get the data by id
-    else if(req.url!=='/api/data' && req.method === "GET" && obj[0]=='id')
-    {
-     const id = parsedurl.query.id
-     console.log(data);
-     const info = data.find((doc) => {
-        console.log(doc);
-       return doc.id == Number(id)
-    })
-     console.log(info);
-     if (!info) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ message: error }));
-     }
-     res.writeHead(200,{'content-type':'text/json'})
-     res.write(JSON.stringify(info))
-     res.end()
-    }
+const server = http.createServer((req, res) => {
+
+   //get whole data
+   if (req.url === '/api/getAlldata' && req.method === "GET") {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.write(JSON.stringify(data))
+      res.end()
+      
+   }
 
 
-    //deleting the  data
-    else if(req.url!=='/api/data' && req.method === "DELETE" && obj[0]=='id')
-    {
-     const id = parsedurl.query.id
-     console.log(data);
-     const info = data.find((doc) => {
-        console.log(doc);
-       return doc.id == Number(id)
-    })
-     console.log(info);
-     if (!info) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ message: error }));
-     }
-     const result = data.filter((doc) => {
-        console.log(doc);
-       return doc.id !== Number(id)
-    })
-     res.writeHead(200,{'content-type':'text/json'})
-     res.write(JSON.stringify(result))
-     res.end()
-    }
-
-
-    //updating data
-    else if(req.url!=='/api/data' && req.method === "PATCH" && obj[0]=='id')
-    {
-        console.log("hi",req);
-     const id = parsedurl.query.id
-     console.log(data);
-    //  const { title } = req.body
-     const info = data.find((doc) => {
-        console.log(doc);
-       return doc.id == Number(id)
-    })
-     console.log(info);
-     if (!info) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ message: error }));
-     }
-     const updatedData = data.map((doc) => {
-        if (doc.id === Number(id)) {
-          doc.title =req.body
-        }
-        return doc
+   //get the data by id
+   else if (req.url.match(/\/data\/([0-9]+)/) && req.method === "GET") {
+      const paramID = req.url.split("/").pop()
+      const info = data.find((doc) => {
+         return doc.id == Number(paramID)
       })
-     res.writeHead(200,{'content-type':'text/json'})
-     res.write(JSON.stringify(updatedData))
-     res.end()
-    }
+      if (!info) {
+         res.writeHead(404, { "Content-Type": "application/json" });
+         res.end(JSON.stringify({ message: error }));
+      }
+      res.writeHead(200, { 'content-type': 'text/json' })
+      res.write(JSON.stringify(info))
+      res.end()
+   }
+
+
+   //delete the data
+   else if (req.url.match(/\/data\/([0-9]+)/)  && req.method === "DELETE") {
+      const paramID = req.url.split("/").pop()
+      const info = data.find((doc) => {
+         return doc.id == Number(paramID)
+      })
+      if (!info) {
+         res.writeHead(404, { "Content-Type": "application/json" });
+         res.end(JSON.stringify({ message: error }));
+      }
+      const result = data.filter((doc) => {
+         return doc.id !== Number(paramID)
+      })
+      res.writeHead(200, { 'content-type': 'text/json' })
+      res.write(JSON.stringify(result))
+      res.end()
+   }
+
+
+   // PUT request, update any one of the objects 
+   else if (req.url.match(/\/data\/([0-9]+)/)  && req.method === "PUT") {
+      const paramID = req.url.split("/").pop()
+      const info = data.find((doc) => {
+         return doc.id == Number(paramID)
+      })
+      if (!info) {
+         res.writeHead(404, { "Content-Type": "application/json" });
+         res.end(JSON.stringify({ message: error }));
+      }
+      var body = '';
+      req.on('data', function (data) { body += data; });
+      req.on('end', function () {
+         var { title } = JSON.parse(body);
+         console.log(title);
+         const result = data.map(doc => {
+            if (doc.id === Number(paramID)) {
+               doc.title = title
+            }
+            console.log(paramID);
+            return doc
+         })
+         res.writeHead(200, { 'content-type': 'text/json' })
+         res.write(JSON.stringify(result))
+         res.end();
+      });
+   }
+
+
+   //POST request, create & append a new object 
+   else if (req.url === '/api/Postdata' && req.method === "POST") {
+      var body = '';
+      req.on('data', function (data) { body += data; });
+      req.on('end', function () {
+         var newDoc = JSON.parse(body);
+         console.log(newDoc);
+         let newData = {
+            id: Math.floor(4 + Math.random() * 10),
+            ...newDoc,
+         };
+         res.writeHead(200, { 'content-type': 'text/json' })
+         res.write(JSON.stringify([...data, newData]))
+         res.end();
+
+
+
+         //Write the final result obtained on a file as well.
+         var obj = [...data, newData]
+         var json = JSON.stringify(obj, null, 2)
+         console.log("hi", obj);
+         fs.writeFile("./Node_Js_Task1/result.json", json, (err) => {
+            if (err) {
+               console.error(err)
+               throw err
+            }
+         });
+      });
+   }
+
 })
 
 server.listen(5000)
